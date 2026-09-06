@@ -246,6 +246,15 @@ async def websocket_endpoint(websocket: WebSocket):
 
         runner = WorkerRunner()
         await runner.add_workers(task)
+
+        @transport.event_handler("on_client_connected")
+        async def on_client_connected(transport, client):
+            logger.info("Client connected")
+
+        @transport.event_handler("on_client_disconnected")
+        async def on_client_disconnected(transport, client):
+            logger.info("Client disconnected")
+
         await runner.run()
 
     except WebSocketDisconnect:
