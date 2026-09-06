@@ -1,0 +1,48 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend-admin
+      - frontend-user
+      - backend-admin
+      - backend-user
+
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+    volumes:
+      - ./frontend-admin:/app
+    # Set base path for vite so assets load correctly when mounted under /admin/
+    command: npm run dev -- --host --base=/admin/
+    environment:
+      - VITE_API_URL=/api/admin
+
+  frontend-user:
+    build:
+      context: ./frontend-user
+    volumes:
+      - ./frontend-user:/app
+    # Set base path for vite so assets load correctly when mounted under /user/
+    command: npm run dev -- --host --base=/user/
+    environment:
+      - VITE_API_URL=/api/user
+
+  backend-admin:
+    build:
+      context: ./backend-admin
+    volumes:
+      - ./backend-admin:/app
+    environment:
+      - APP_ENV=development
+
+  backend-user:
+    build:
+      context: ./backend-user
+    volumes:
+      - ./backend-user:/app
+    environment:
+      - APP_ENV=development
