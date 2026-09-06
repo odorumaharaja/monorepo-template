@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pipecat + Faster-Whisper リアルタイム音声認識</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="background-glow"></div>
+  
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </line>
+        </div>
+        <div>
+          <h1 class="app-title">Pipecat Whisper Live STT</h1>
+          <p class="app-subtitle">Pipecat & faster-whisper リアルタイム音声認識デモ</p>
+        </div>
+      </div>
+      <div class="status-group">
+        <div id="status-badge" class="badge badge-offline">
+          <span class="dot"></span>
+          <span id="status-text">未接続</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Control & Visualizer Card -->
+      <section class="card control-card">
+        <div class="visualizer-container">
+          <canvas id="waveform-canvas" width="600" height="100"></canvas>
+        </div>
+
+        <div class="mic-button-container">
+          <button id="mic-toggle" class="mic-button" disabled aria-label="マイク切り替え">
+            <div class="mic-icon-wrapper">
+              <svg id="mic-icon-off" class="mic-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"></path>
+                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
+                <line x1="12" y1="19" x2="12" y2="22"></line>
+              </svg>
+              <svg id="mic-icon-on" class="mic-icon hidden" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+            </div>
+            <span id="mic-btn-label">録音開始</span>
+          </button>
+        <p id="instruction-text" class="instruction">ボタンを押してマイク入力を開始してください</p>
+
+        <div class="options-container">
+          <label class="auto-stop-label" for="auto-stop-toggle">
+            <input type="checkbox" id="auto-stop-toggle" class="auto-stop-checkbox">
+            <span class="custom-switch"></span>
+            <span class="option-text">最初の認識完了で自動停止</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Transcription Display Card -->
+      <section class="card display-card">
+        <div class="card-header">
+          <h2>認識結果</h2>
+          <div class="actions">
+            <button id="info-btn" class="btn-secondary" title="モデル情報を取得">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              情報
+            </button>
+            <button id="restart-btn" class="btn-secondary" title="モデル再起動">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+              再起動
+            </button>
+            <button id="copy-btn" class="btn-secondary" title="テキストをコピー">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              コピー
+            </button>
+            <button id="clear-btn" class="btn-secondary" title="クリア">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              クリア
+            </button>
+          </div>
+        </div>
+
+        <div id="transcription-container" class="transcription-area">
+          <div id="placeholder-text" class="placeholder">
+            マイクに向かって話すと、ここに文字起こし結果がリアルタイム表示されます...
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Powered by <span class="highlight">Pipecat</span> & <span class="highlight">faster-whisper</span></p>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

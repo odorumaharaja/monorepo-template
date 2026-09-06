@@ -10,6 +10,7 @@ services:
       - frontend-user
       - backend-admin
       - backend-user
+      - backend-pipecat
 
   frontend-admin:
     build:
@@ -46,3 +47,27 @@ services:
       - ./backend-user:/app
     environment:
       - APP_ENV=development
+
+  backend-pipecat:
+    build:
+      context: ./backend-pipecat
+    ports:
+      - "7860:7860"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=7860
+      - WHISPER_MODEL=${WHISPER_MODEL:-turbo}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cuda}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-float16}
+      - HF_HOME=/app/models
+    volumes:
+      - ./backend-pipecat/models:/app/models
+      - ./backend-pipecat/src:/app/src
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
