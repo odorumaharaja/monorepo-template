@@ -17,10 +17,16 @@ This is a scalable monorepo template containing multiple frontends and backends,
 
 ### 1. Build the Services and Dependencies
 
-Run the build script to generate the Docker images and install frontend dependencies to your host machine. This enables offline execution later.
+First, generate the Docker images:
 
 ```bash
-./scripts/build.sh
+./scripts/build-images.sh
+```
+
+Next, install frontend dependencies to your host machine. This enables offline execution later:
+
+```bash
+./scripts/build-frontend.sh
 ```
 
 ### 2. Start the Application
@@ -53,7 +59,7 @@ To add a new frontend or backend to the monorepo, follow these steps:
 1.  **Create the Application Directory**: Scaffold your new app (e.g., `frontend-new` or `backend-new`) and add a `Dockerfile` following the patterns of existing services.
 2.  **Update `docker-compose.yml`**: Add the new service under `services:` with its volume mappings and environment variables. Also, add the service name to the `depends_on` list of the `nginx` service.
 3.  **Update Nginx Routing (`nginx/nginx.conf`)**: Add a new `location` block to proxy traffic to your new service. For frontends, use `proxy_pass http://frontend-new:5173;` (without trailing slash). For backends, use `proxy_pass http://backend-new:8000/;` (with trailing slash) and set the `root_path` in FastAPI.
-4.  **Update Build Script (`scripts/build.sh`)**: If it is a frontend, append its directory name to the `APP` loop variable list so its dependencies are installed automatically on the host.
+4.  **Update Build Script (`scripts/build-frontend.sh`)**: If it is a frontend, append its directory name to the `APP` loop variable list so its dependencies are installed automatically on the host.
 
 ## Offline Execution
 
