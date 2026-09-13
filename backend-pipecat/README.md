@@ -1,148 +1,140 @@
-# Pipecat + faster-whisper WebUI リアルタイム音声認識サンプル
+# backend-pipecat
 
-Pipecat フレームワークと `faster-whisper` を使用し、ブラウザのマイク入力を WebSocket 経由でリアルタイムに文字起こしする WebUI アプリケーションです。
+Real-time speech recognition server using [Pipecat](https://github.com/pipecat-ai/pipecat) and [faster-whisper](https://github.com/SYSTRAN/faster-whisper), with GPU-accelerated inference via NVIDIA CUDA.
 
----
+## Overview
 
-## 概要
+This service provides a WebSocket-based real-time speech-to-text pipeline:
 
-- **Pipecat**: 音声処理パイプラインの管理（WebsocketTransport, Silero VAD）
-- **faster-whisper**: CTranslate2 に基づく高速 Whisper インファレンス
-- **FastAPI**: 非同期 Web サーバー & WebSocket 通信
-- **WebUI**: Vanilla HTML/CSS/JS (ガラスモルフィズムデザイン・リアルタイム波形描画)
+- **Pipecat**: Manages the audio processing pipeline (WebSocket transport, Silero VAD for voice activity detection)
+- **faster-whisper**: CTranslate2-based high-performance Whisper inference
+- **FastAPI**: Async web server and WebSocket communication
+- **Built-in WebUI**: Vanilla HTML/CSS/JS interface with glassmorphism design and real-time waveform visualization
 
-※ 独自の WebUI や既存の Web アプリケーションに本機能を組み込む方法については、[INTEGRATION_GUIDE.md](file:///home/dmng/pipecat-whisper/INTEGRATION_GUIDE.md) を参照してください。
+## Tech Stack
 
----
+- [Pipecat](https://github.com/pipecat-ai/pipecat) (`pipecat-ai`) — Voice/audio pipeline framework
+- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) — High-speed Whisper inference
+- [FastAPI](https://fastapi.tiangolo.com/) — Async web framework
+- [Uvicorn](https://www.uvicorn.org/) — ASGI server
+- [uv](https://docs.astral.sh/uv/) — Python package and project manager
+- NVIDIA CUDA runtime — GPU acceleration
 
-## 開発・実行環境のセットアップ (`uv` 使用)
+## Running in Monorepo (Recommended)
 
-Python 環境の依存関係管理には `uv` を使用します。
+This service is intended to run as part of the monorepo via Docker Compose. See the [root README](../README.md) for setup instructions.
 
-### 1. 依存関係の同期
+When running in the monorepo:
+- Frontend UI: `http://localhost:8000/pipecat/`
+- Backend API & WebUI: `http://localhost:8000/api/pipecat/`
+- Direct access (bypassing Nginx): `http://localhost:7860`
+- Requires NVIDIA GPU with CUDA support
+
+## Local Development (using `uv`)
 
 ```bash
+# Install dependencies
 uv sync
-```
 
-### 2. サーバーの起動
-
-```bash
+# Start the server
 uv run python src/server.py
+
+# Run tests
+uv run pytest
 ```
 
-起動後、ブラウザで以下の URL にアクセスします:
-- **WebUI**: `http://127.0.0.1:7860`
+The server starts on `http://127.0.0.1:7860` by default.
 
----
+## Project Structure
 
-## Docker / Docker Compose での起動 (GPU 対応)
+```
+backend-pipecat/
+├── src/
+│   ├── server.py        # Uvicorn entry point
+│   ├── api.py           # FastAPI app with WebSocket handlers and static WebUI
+│   └── static/          # Built-in WebUI static assets
+├── models/              # Persisted Whisper model files (auto-downloaded)
+├── tests/
+│   └── test_main.py     # Unit tests
+├── pyproject.toml       # Project metadata and dependencies (uv/hatch)
+├── test_api.py          # API import verification script
+├── Dockerfile           # Docker image (nvidia/cuda with Python and uv)
+└── README.md
+```
 
-本プロジェクトは **NVIDIA GPU (CUDA)** に対応した Docker 構成となっています。
+## Docker
 
-### 1. Docker Compose を使用する場合 (推奨)
+The Dockerfile uses `nvidia/cuda:12.9.2-cudnn-runtime-ubuntu24.04` as the base image and installs Python, ffmpeg, and [uv](https://docs.astral.sh/uv/):
 
-NVIDIA Container Toolkit がセットアップされている環境で以下を実行します。
+```dockerfile
+FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu24.04
+# Installs python3, ffmpeg, uv
+# Runs: uv run python src/server.py
+```
+
+Key Docker Compose configuration:
+- Port `7860` is exposed to the host for direct access
+- `./backend-pipecat/models` is mounted for model file persistence
+- `./backend-pipecat/src` is mounted for live code changes
+- NVIDIA GPU resources are reserved via the `deploy` section
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `HOST` | `0.0.0.0` | Server bind address (`127.0.0.1` for local, `0.0.0.0` for Docker) |
+| `PORT` | `7860` | Server port |
+| `WHISPER_MODEL` | `turbo` | Whisper model name (e.g., `base`, `large-v3`, `turbo`, or HuggingFace repo) |
+| `WHISPER_DEVICE` | `cuda` | Inference device (`cuda` or `cpu`) |
+| `WHISPER_COMPUTE_TYPE` | `float16` | Compute precision (`float16`, `int8`, etc.) |
+| `HF_HOME` | `/app/models` | HuggingFace model cache directory |
+
+### Selecting a Whisper Model
+
+Override the model at startup:
 
 ```bash
-docker compose up --build
+# Using environment variable directly
+WHISPER_MODEL=large-v3 docker compose up backend-pipecat
+
+# Or using a HuggingFace repository name
+WHISPER_MODEL=Systran/faster-whisper-large-v3 docker compose up backend-pipecat
 ```
 
-#### Faster-Whisper モデルの選択と設定
-Docker Compose 起動時に環境変数 `WHISPER_MODEL` を指定してモデルを変更できます (デフォルト: `turbo` または `Systran/faster-whisper-*` リポジトリ名)。
+### Model Persistence
 
-- **一時的にモデルを指定して起動する場合**:
-  ```bash
-  WHISPER_MODEL=turbo docker compose up
-  # または
-  WHISPER_MODEL=large-v3 docker compose up
-  # または
-  WHISPER_MODEL=Systran/faster-whisper-large-v3 docker compose up
-  ```
+Downloaded Whisper models are stored in `./models/` on the host filesystem. Models persist across container restarts and rebuilds, avoiding redundant downloads.
 
-- **`.env` ファイルを使用する場合**:
-  ```bash
-  cp .env.example .env
-  # .env 内の WHISPER_MODEL=large-v3 などを編集して起動
-  docker compose up
-  ```
+## Running Without GPU (CPU Mode)
 
-#### モデルファイルの永続化
-ダウンロードされた Whisper モデルは、プロジェクト直下の `./models` フォルダに自動的に保存・永続化されます。コンテナを再作成・削除してもモデルの再ダウンロードは発生しません。
-
-#### HTTPS 接続設定 (https-portal)
-Web ブラウザのセキュリティ仕様により、マイク入力 (`getUserMedia`) を許可するには `localhost` または `HTTPS` 接続が必須となります。
-本構成では [https-portal](https://github.com/SteveLTN/https-portal) をリバースプロキシとして統合しており、IP アドレスをハードコードせずに動的取得またはキャッチオール (`_`) 接続に対応しています。
-
-- **自動 IP/ホスト名検出スクリプトで起動する場合 (推奨)**:
-  `./start.sh` を実行すると、現在のマシン名（例: `fractal.local`）とローカル IP アドレス（例: `192.168.1.8`）を自動取得して Docker Compose を起動します。
-  ```bash
-  ./start.sh
-  ```
-
-- **Docker Compose で直接起動する場合 (キャッチオール `_`)**:
-  `docker-compose.yml` 内の `DOMAINS` はデフォルトで `localhost, _`（全ての IP/ホスト名にマッチ）に設定されているため、IP 直書きなしで起動可能です。
-  ```bash
-  docker compose up
-  ```
-
-- **アクセス URL**:
-  - `https://<マシン名>.local` (例: `https://fractal.local`)
-  - `https://<IPアドレス>` (例: `https://192.168.1.8`)
-  - `https://localhost`
-
-  ※ 自己署名証明書（`STAGE=local`）のため初回アクセス時に「保護されていない通信 / 証明書エラー」の警告が表示されますが、「詳細設定」→「（IPアドレス/ホスト名）に進む / 危険を承知で続行」を選択すると HTTPS / WSS 接続が完了し、マイクの使用が許可されます。
-
-- **本番環境 (Let's Encrypt 自動発行)**:
-  独自ドメインを取得し、`.env` で設定することで Let's Encrypt から正式な SSL 証明書が自動取得されます。
-  ```env
-  DOMAIN=example.com
-  STAGE=production
-  ```
-
----
-
-### 2. Docker コマンドを使用する場合 (GPU 指定)
+For CPU-only execution, override the device and compute type:
 
 ```bash
-docker build -t pipecat-whisper .
-docker run --gpus all -v $(pwd)/models:/app/models -e WHISPER_MODEL=base -p 7860:7860 pipecat-whisper
+WHISPER_DEVICE=cpu WHISPER_COMPUTE_TYPE=int8 docker compose up backend-pipecat
 ```
 
-※ CPU で実行したい場合は環境変数 `WHISPER_DEVICE=cpu` および `WHISPER_COMPUTE_TYPE=int8` を指定して起動できます:
+> **Note:** Remove or comment out the `deploy.resources.reservations.devices` block in `docker-compose.yml` when running without a GPU.
+
+## Testing
+
 ```bash
-docker run -p 7860:7860 -v $(pwd)/models:/app/models -e WHISPER_DEVICE=cpu -e WHISPER_COMPUTE_TYPE=int8 pipecat-whisper
+# Run tests
+uv run pytest
+
+# Quick import check
+uv run python test_api.py
 ```
 
-起動後、ブラウザで `http://127.0.0.1:7860` にアクセスします。
+## Security
 
----
+- The server binds to `127.0.0.1` (localhost only) by default for local execution. The `HOST` environment variable is set to `0.0.0.0` only inside Docker containers.
+- The built-in WebUI uses secure DOM manipulation methods (`textContent`, `document.createElement`) instead of `innerHTML` to prevent XSS.
 
-## 使用方法
+## License
 
-1. ブラウザで `https://localhost` や `https://fractal.local` を開きます。
-2. ステータスが「オンライン」になったら「録音開始」ボタンをクリックし、マイク入力を許可します。
-3. マイクに向かって日本語で話します。
-4. 発話が終わると、`Silero VAD` が発話終了を自動検出し、`faster-whisper` による認識結果が画面上にリアルタイム表示されます。
-5. **自動停止機能**: 「最初の認識完了で自動停止」トグルを有効にすると、1回目の発話・認識が確定したタイミングでマイク入力が自動的にオフになります（設定はブラウザに保持されます）。
-6. 「コピー」ボタンでテキストをクリップボードに保存、「クリア」ボタンで履歴を消去できます。
+This service is licensed under the [MIT License](../LICENSE).
 
----
-
-## セキュリティに関する仕様
-- サーバーはローカルホスト (`127.0.0.1`) のみにバインドされます。
-- WebUI では XSS 対策のため `innerHTML` を排し、セキュアな DOM 操作メソッド (`textContent`, `document.createElement`) を使用しています。
-
----
-
-## ライセンス
-
-本プロジェクトは **[MIT License](file:///home/dmng/pipecat-whisper/LICENSE)** のもとで公開されています。
-
-### 依存ライブラリのライセンス
-
-本プロジェクトが依存・使用している主要フレームワークおよびモデルのライセンスは以下の通りです：
+### Dependency Licenses
 
 - **[Pipecat](https://github.com/pipecat-ai/pipecat)** (`pipecat-ai`): [BSD 2-Clause License](https://github.com/pipecat-ai/pipecat/blob/main/LICENSE) (Copyright (c) Daily)
 - **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)** / **[OpenAI Whisper](https://github.com/openai/whisper)**: [MIT License](https://github.com/SYSTRAN/faster-whisper/blob/master/LICENSE) (Copyright (c) SYSTRAN / OpenAI)
-

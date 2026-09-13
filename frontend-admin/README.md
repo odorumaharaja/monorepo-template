@@ -1,32 +1,80 @@
-# React + TypeScript + Vite
+# frontend-admin
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Admin dashboard frontend application built with Vite, React, and TypeScript.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- [Vite](https://vite.dev/) v8 — Build tool and dev server
+- [React](https://react.dev/) v19 — UI library
+- [TypeScript](https://www.typescriptlang.org/) v6 — Type-safe JavaScript
+- [Oxlint](https://oxc.rs/) — Fast linter
 
-## React Compiler
+## Running in Monorepo (Recommended)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+This service is intended to run as part of the monorepo via Docker Compose. See the [root README](../README.md) for setup instructions.
 
-## Expanding the Oxlint configuration
+When running in the monorepo:
+- Accessible at: `http://localhost:8000/admin/`
+- API endpoint is configured via the `VITE_API_URL` environment variable (defaults to `/api/admin`)
+- The Vite base path is set to `/admin/` by Docker Compose
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Local Development
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+If you want to develop this frontend independently:
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+
+# Lint
+npm run lint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Project Structure
+
+```
+frontend-admin/
+├── public/              # Static assets
+├── src/                 # Application source code
+├── Dockerfile           # Docker image definition (node:24-alpine)
+├── index.html           # Entry HTML
+├── package.json         # Dependencies and scripts
+├── tsconfig.json        # TypeScript configuration
+├── tsconfig.app.json    # TypeScript config for app source
+├── tsconfig.node.json   # TypeScript config for Node tooling
+├── vite.config.ts       # Vite configuration
+└── .oxlintrc.json       # Oxlint rules
+```
+
+## Docker
+
+The Dockerfile uses `node:24-alpine` as the base image and runs the Vite dev server by default:
+
+```dockerfile
+FROM node:24.20.0-alpine
+WORKDIR /app
+CMD ["npm", "run", "dev", "--", "--host"]
+```
+
+In the Docker Compose setup, the project directory is mounted as a volume, so changes are reflected immediately via Vite HMR.
+
+## Testing
+
+```bash
+npm run lint
+```
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `VITE_API_URL` | Base URL for API requests (set to `/api/admin` by Docker Compose) |
