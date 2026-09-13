@@ -56,6 +56,37 @@ def _patched_whisper_init(self, model_size_or_path, **kwargs):
 WhisperModel.__init__ = _patched_whisper_init
 # --------------------------------------------------------------------------
 
+_global_whisper_model = None
+
+class CachedWhisperSTTService(WhisperSTTService):
+    def _load(self):
+        global _global_whisper_model
+        logger.debug("Loading Whisper model...")
+        
+        model_name = self._settings.model
+        if getattr(model_name, '__class__', None).__name__ == 'NotGiven':
+            model_name = None
+            
+        if not model_name:
+            raise ValueError("Whisper model must be specified")
+            
+        if _global_whisper_model is None:
+            logger.info(f"Initializing global WhisperModel instance (model: {model_name}, device: {self._device}, compute_type: {self._compute_type})...")
+            _global_whisper_model = WhisperModel(
+                model_name,
+                device=self._device,
+                compute_type=self._compute_type
+            )
+        else:
+            logger.info("Reusing existing global WhisperModel instance...")
+            
+        self._model = _global_whisper_model
+        logger.debug("Loaded Whisper model")
+        
+        unsupported = self._unsupported_language()
+        if unsupported:
+            raise ValueError(unsupported)
+
 app = FastAPI(
     title="Pipecat + Faster-Whisper WebUI STT",
     description="""
@@ -219,7 +250,7 @@ async def websocket_endpoint(websocket: WebSocket):
             f"⚡ Initializing Faster-Whisper STT (model: '{whisper_model}', device: '{whisper_device}', compute_type: '{whisper_compute_type}')"
         )
 
-        stt = WhisperSTTService(
+        stt = CachedWhisperSTTService(
             settings=WhisperSTTService.Settings(
                 model=whisper_model,
                 language=Language.JA,

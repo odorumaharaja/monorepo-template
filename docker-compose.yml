@@ -32,6 +32,16 @@ services:
     environment:
       - VITE_API_URL=/api/user
 
+  frontend-pipecat:
+    build:
+      context: ./frontend-pipecat
+    volumes:
+      - ./frontend-pipecat:/app
+    # Set base path for vite so assets load correctly when mounted under /pipecat/
+    command: npm run dev -- --host --base=/pipecat/
+    environment:
+      - VITE_API_URL=/api/pipecat
+
   backend-admin:
     build:
       context: ./backend-admin
