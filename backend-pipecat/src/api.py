@@ -26,7 +26,7 @@ from pipecat.workers.runner import WorkerRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.audio.vad_processor import VADProcessor
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
-from pipecat.serializers.base_serializer import FrameSerializer
+from pipecat.serializers.protobuf import ProtobufFrameSerializer
 from pipecat.services.whisper.stt import WhisperSTTService
 from pipecat.transcriptions.language import Language
 from pipecat.transports.websocket.fastapi import (
@@ -112,71 +112,6 @@ STATIC_DIR = BASE_DIR / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
-class RawAudioFrameSerializer(FrameSerializer):
-    """Serializer that converts raw binary PCM audio messages from WebSocket into InputAudioRawFrame."""
-
-    def __init__(self, sample_rate: int = 16000, num_channels: int = 1):
-        super().__init__()
-        self._sample_rate = sample_rate
-        self._num_channels = num_channels
-        self._bytes_count = 0
-
-    async def serialize(self, frame: Frame) -> str | bytes | None:
-        if isinstance(frame, OutputAudioRawFrame):
-            return frame.audio
-        return None
-
-    async def deserialize(self, data: str | bytes) -> Frame | None:
-        if isinstance(data, bytes):
-            self._bytes_count += len(data)
-            # Log audio reception every ~64KB
-            if self._bytes_count >= 65536:
-                logger.info(f"🔊 [Audio Received] Server received binary PCM audio stream ({self._bytes_count} bytes)")
-                self._bytes_count = 0
-
-            return InputAudioRawFrame(
-                audio=data,
-                sample_rate=self._sample_rate,
-                num_channels=self._num_channels,
-            )
-        return None
-
-
-class TranscriptionForwarder(FrameProcessor):
-    """Pipecat FrameProcessor that logs VAD & STT events and forwards transcription frames to the WebSocket client."""
-
-    def __init__(self, ws: WebSocket):
-        super().__init__()
-        self._ws = ws
-
-    async def process_frame(self, frame: Frame, direction: FrameDirection):
-        await super().process_frame(frame, direction)
-
-        if isinstance(frame, VADUserStartedSpeakingFrame):
-            logger.info("🎤 [VAD] User started speaking")
-
-        elif isinstance(frame, VADUserStoppedSpeakingFrame):
-            logger.info("🤫 [VAD] User stopped speaking - triggering Whisper STT")
-
-        elif isinstance(frame, TranscriptionFrame):
-            logger.info(f"✨ [STT Result] Final transcription: '{frame.text}'")
-            payload = {"type": "transcription", "text": frame.text, "is_final": True}
-            try:
-                await self._ws.send_text(json.dumps(payload, ensure_ascii=False))
-            except Exception as e:
-                logger.error(f"Error sending final transcription: {e}")
-
-        elif isinstance(frame, InterimTranscriptionFrame):
-            logger.info(f"💬 [STT Interim] Interim transcription: '{frame.text}'")
-            payload = {"type": "transcription", "text": frame.text, "is_final": False}
-            try:
-                await self._ws.send_text(json.dumps(payload, ensure_ascii=False))
-            except Exception as e:
-                logger.error(f"Error sending interim transcription: {e}")
-
-        await self.push_frame(frame, direction)
-
-
 @app.get("/", summary="Get Web UI", description="Returns the frontend (index.html) to test real-time STT in the browser.")
 async def get_index():
     return FileResponse(STATIC_DIR / "index.html")
@@ -213,7 +148,7 @@ async def websocket_endpoint(websocket: WebSocket):
     logger.info("Client connected via WebSocket")
 
     try:
-        # Initialize Pipecat Transport with RawAudioFrameSerializer
+        # Initialize Pipecat Transport with ProtobufFrameSerializer
         transport = FastAPIWebsocketTransport(
             websocket=websocket,
             params=FastAPIWebsocketParams(
@@ -222,7 +157,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 audio_in_channels=1,
                 audio_out_enabled=False,
                 add_wav_header=False,
-                serializer=RawAudioFrameSerializer(sample_rate=16000, num_channels=1),
+                serializer=ProtobufFrameSerializer(),
             ),
         )
 
@@ -259,14 +194,11 @@ async def websocket_endpoint(websocket: WebSocket):
             compute_type=whisper_compute_type,
         )
 
-        forwarder = TranscriptionForwarder(websocket)
-
-        # Construct Pipeline: Audio In -> VADProcessor -> WhisperSTTService -> Forwarder -> Audio Out
+        # Construct Pipeline: Audio In -> VADProcessor -> WhisperSTTService -> Audio Out (for serialization)
         pipeline = Pipeline([
             transport.input(),
             vad,
             stt,
-            forwarder,
             transport.output(),
         ])
 
@@ -303,7 +235,6 @@ async def websocket_endpoint(websocket: WebSocket):
         if 'stt' in locals(): del stt
         if 'vad' in locals(): del vad
         if 'transport' in locals(): del transport
-        if 'forwarder' in locals(): del forwarder
         if 'runner' in locals(): del runner
 
         # Force garbage collection to ensure CTranslate2 model objects are destroyed
