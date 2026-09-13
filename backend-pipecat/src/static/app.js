@@ -47,13 +47,18 @@ document.addEventListener('DOMContentLoaded', () => {
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
+  // Calculate base path for API and WebSocket connections (supports running under /api/pipecat/ or root /)
+  const basePath = window.location.pathname.endsWith('/')
+    ? window.location.pathname
+    : window.location.pathname + '/';
+
   // Connect to WebSocket Server
   function connectWebSocket() {
     updateStatus('connecting', '接続中...');
     micToggle.disabled = true;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${protocol}//${window.location.host}${basePath}ws`;
 
     ws = new WebSocket(wsUrl);
 
@@ -321,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (infoBtn) {
     infoBtn.addEventListener('click', async () => {
       try {
-        const res = await fetch('/model/info');
+        const res = await fetch(`${basePath}model/info`);
         const data = await res.json();
         alert(`Model: ${data.model}\nDevice: ${data.device}\nCompute Type: ${data.compute_type}`);
       } catch (err) {
@@ -334,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (restartBtn) {
     restartBtn.addEventListener('click', async () => {
       try {
-        const res = await fetch('/model/restart', { method: 'POST' });
+        const res = await fetch(`${basePath}model/restart`, { method: 'POST' });
         const data = await res.json();
         alert(data.message);
       } catch (err) {

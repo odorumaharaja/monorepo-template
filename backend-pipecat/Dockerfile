@@ -1,4 +1,5 @@
-FROM nvidia/cuda:12.6.3-runtime-ubuntu24.04
+#FROM nvidia/cuda:12.6.3-runtime-ubuntu24.04
+FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -20,10 +21,10 @@ WORKDIR /app
 RUN mkdir -p /app/models
 
 # Copy dependency definition files AND README.md (required by hatchling build backend)
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml README.md ./
 
 # Install project dependencies
-RUN uv sync --frozen --no-cache
+RUN uv sync
 
 # Copy application source code
 #COPY src ./src
