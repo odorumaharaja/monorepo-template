@@ -5,8 +5,6 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # Pipecat Imports
@@ -88,7 +86,7 @@ class CachedWhisperSTTService(WhisperSTTService):
             raise ValueError(unsupported)
 
 app = FastAPI(
-    title="Pipecat + Faster-Whisper WebUI STT",
+    title="Pipecat STT Backend API",
     description="""
 Real-time Speech-to-Text (STT) server using Pipecat and Faster-Whisper.
 
@@ -104,17 +102,22 @@ Although it cannot be tested directly in Swagger UI, it uses the following proto
     version="1.0.0"
 )
 
-# Directory setup
-BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
+class ErrorResponse(BaseModel):
+    detail: str
 
-# Mount static files
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+class HealthResponse(BaseModel):
+    status: str
 
-
-@app.get("/", summary="Get Web UI", description="Returns the frontend (index.html) to test real-time STT in the browser.")
-async def get_index():
-    return FileResponse(STATIC_DIR / "index.html")
+@app.get(
+    "/health",
+    summary="Health Check",
+    description="Returns the health status of the API.",
+    tags=["System"],
+    response_model=HealthResponse,
+    responses={500: {"model": ErrorResponse}}
+)
+async def health_check():
+    return HealthResponse(status="ok")
 
 
 class ModelInfo(BaseModel):
@@ -122,7 +125,14 @@ class ModelInfo(BaseModel):
     device: str
     compute_type: str
 
-@app.get("/model/info", summary="Get Speech Recognition Model Info", description="Returns information about the currently configured STT model.", tags=["Model"])
+@app.get(
+    "/model/info",
+    summary="Get Speech Recognition Model Info",
+    description="Returns information about the currently configured STT model.",
+    tags=["Model"],
+    response_model=ModelInfo,
+    responses={500: {"model": ErrorResponse}}
+)
 async def get_model_info() -> ModelInfo:
     whisper_device = os.getenv("WHISPER_DEVICE", "cuda")
     return ModelInfo(
@@ -134,12 +144,23 @@ async def get_model_info() -> ModelInfo:
         )
     )
 
-@app.post("/model/restart", summary="Restart Speech Recognition Model", description="Restarts the speech recognition model (clears memory or reloads).", tags=["Model"])
+class RestartResponse(BaseModel):
+    status: str
+    message: str
+
+@app.post(
+    "/model/restart",
+    summary="Restart Speech Recognition Model",
+    description="Restarts the speech recognition model (clears memory or reloads).",
+    tags=["Model"],
+    response_model=RestartResponse,
+    responses={500: {"model": ErrorResponse}}
+)
 async def restart_model():
     logger.info("STT Model restart requested via API.")
     # In the current implementation, the model is initialized per WebSocket connection.
     # Therefore, this would ideally disconnect existing clients or clear a global cache.
-    return {"status": "success", "message": "STT model restart request accepted."}
+    return RestartResponse(status="success", message="STT model restart request accepted.")
 
 
 @app.websocket("/ws")

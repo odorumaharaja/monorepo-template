@@ -51,13 +51,11 @@ The server starts on `http://127.0.0.1:7860` by default.
 backend-pipecat/
 ├── src/
 │   ├── server.py        # Uvicorn entry point
-│   ├── api.py           # FastAPI app with WebSocket handlers and static WebUI
-│   └── static/          # Built-in WebUI static assets
+│   └── api.py           # FastAPI app with WebSocket handlers
 ├── models/              # Persisted Whisper model files (auto-downloaded)
 ├── tests/
-│   └── test_main.py     # Unit tests
+│   └── test_api.py      # Unit tests
 ├── pyproject.toml       # Project metadata and dependencies (uv/hatch)
-├── test_api.py          # API import verification script
 ├── Dockerfile           # Docker image (nvidia/cuda with Python and uv)
 └── README.md
 ```
@@ -117,12 +115,14 @@ WHISPER_DEVICE=cpu WHISPER_COMPUTE_TYPE=int8 docker compose up backend-pipecat
 
 ## Testing
 
-```bash
-# Run tests
-uv run pytest
+To run the unit tests, use the following command from the `backend-pipecat` directory:
 
-# Quick import check
-uv run python test_api.py
+```bash
+# Run all unit tests
+uv run pytest tests
+
+# Run specific tests with verbose output
+uv run pytest tests/test_api.py -v
 ```
 
 ## Security
