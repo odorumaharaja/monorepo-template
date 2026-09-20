@@ -7,7 +7,7 @@ function App() {
   const [apiResponse, setApiResponse] = useState<string>('Loading...')
 
   useEffect(() => {
-    const apiUrl = import.meta.env.VITE_API_URL || '/api/user'
+    const apiUrl = import.meta.env.VITE_API_URL || '/api/template'
     fetch(`${apiUrl}/`)
       .then(res => res.json())
       .then(data => setApiResponse(JSON.stringify(data)))

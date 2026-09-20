@@ -8,9 +8,8 @@ services:
     depends_on:
       - frontend-admin
       - frontend-user
-      - backend-admin
-      - backend-user
       - backend-pipecat
+      - backend-template
 
   frontend-admin:
     build:
@@ -20,7 +19,7 @@ services:
     # Set base path for vite so assets load correctly when mounted under /admin/
     command: npm run dev -- --host --base=/admin/
     environment:
-      - VITE_API_URL=/api/admin
+      - VITE_API_URL=/api/template
 
   frontend-user:
     build:
@@ -30,7 +29,7 @@ services:
     # Set base path for vite so assets load correctly when mounted under /user/
     command: npm run dev -- --host --base=/user/
     environment:
-      - VITE_API_URL=/api/user
+      - VITE_API_URL=/api/template
 
   frontend-pipecat:
     build:
@@ -42,19 +41,11 @@ services:
     environment:
       - VITE_API_URL=/api/pipecat
 
-  backend-admin:
+  backend-template:
     build:
-      context: ./backend-admin
+      context: ./backend-template
     volumes:
-      - ./backend-admin:/app
-    environment:
-      - APP_ENV=development
-
-  backend-user:
-    build:
-      context: ./backend-user
-    volumes:
-      - ./backend-user:/app
+      - ./backend-template:/app
     environment:
       - APP_ENV=development
 

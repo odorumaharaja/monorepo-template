@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 
-app = FastAPI(root_path="/api/admin")
+app = FastAPI(root_path="/api/template")
 
 @app.get("/")
 def read_root():
-    return {"Hello": "Admin"}
+    return {"Hello": "Template"}
 
 @app.get("/health")
 def health_check():
