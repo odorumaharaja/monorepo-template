@@ -22,7 +22,7 @@ function App() {
           <img src={viteLogo} className="vite" alt="Vite logo" />
         </div>
         <div>
-          <h1>Admin Dashboard</h1>
+          <h1>Template Dashboard</h1>
           <p>
             Connected to API: <code>{import.meta.env.VITE_API_URL}</code>
           </p>

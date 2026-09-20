@@ -6,8 +6,7 @@ A scalable monorepo template containing multiple frontends and backends, orchest
 
 ```
 monorepo-template/
-├── frontend-admin/      # Admin dashboard (Vite + React + TypeScript)
-├── frontend-user/       # User-facing app (Vite + React + TypeScript)
+├── frontend-template/   # Template dashboard (Vite + React + TypeScript)
 ├── frontend-pipecat/    # Pipecat real-time speech recognition UI (Vite + React + TypeScript)
 ├── backend-template/    # Template API (FastAPI + Python 3.12)
 ├── backend-pipecat/     # Pipecat speech recognition server (FastAPI + faster-whisper, NVIDIA GPU)
@@ -20,8 +19,7 @@ monorepo-template/
 
 | Service | Technology | Base Image | Port (Internal) |
 |---|---|---|---|
-| `frontend-admin` | Vite + React + TypeScript | `node:24-alpine` | 5173 |
-| `frontend-user` | Vite + React + TypeScript | `node:24-alpine` | 5173 |
+| `frontend-template` | Vite + React + TypeScript | `node:24-alpine` | 5173 |
 | `frontend-pipecat` | Vite + React + TypeScript + Pipecat Client SDK | `node:24-alpine` | 5173 |
 | `backend-template` | FastAPI + Uvicorn | `python:3.12-slim` | 8000 |
 | `backend-pipecat` | FastAPI + Pipecat + faster-whisper | `nvidia/cuda:12.9.2-cudnn-runtime-ubuntu24.04` | 7860 |
@@ -61,13 +59,12 @@ The Nginx reverse proxy listens on `localhost:8000` and routes traffic as follow
 
 | URL | Description |
 |---|---|
-| `http://localhost:8000/user/` | User Frontend |
-| `http://localhost:8000/admin/` | Admin Frontend |
+| `http://localhost:8000/template/` | Template Frontend |
 | `http://localhost:8000/pipecat/` | Pipecat Speech Recognition Frontend |
 | `http://localhost:8000/api/template/docs` | Template API (Swagger UI) |
 | `http://localhost:8000/api/pipecat/` | Pipecat Backend API & WebUI |
 
-> **Note:** The root URL (`http://localhost:8000/`) redirects to the User Frontend by default.
+> **Note:** The root URL (`http://localhost:8000/`) redirects to the Template Frontend by default.
 
 ### 5. Stop the Application
 
@@ -110,7 +107,7 @@ WHISPER_DEVICE=cpu WHISPER_COMPUTE_TYPE=int8 docker compose up backend-pipecat
 
 All traffic flows through the Nginx reverse proxy on port 8000.
 
-- **Frontends** (`/user/`, `/admin/`, `/pipecat/`): Proxied to their respective Vite dev servers on port 5173. WebSocket upgrade headers are included for HMR support.
+- **Frontends** (`/template/`, `/pipecat/`): Proxied to their respective Vite dev servers on port 5173. WebSocket upgrade headers are included for HMR support.
 - **Backend APIs** (`/api/template/`): Proxied to FastAPI on port 8000, with the location prefix stripped (trailing-slash `proxy_pass`).
 - **Pipecat API** (`/api/pipecat/`): Proxied to the Pipecat server on port 7860, with WebSocket upgrade support for real-time audio streaming.
 
@@ -156,8 +153,7 @@ cd backend-pipecat && uv run pytest
 Run `npm run lint` inside each `frontend-*` directory:
 
 ```bash
-cd frontend-user && npm run lint
-cd frontend-admin && npm run lint
+cd frontend-template && npm run lint
 cd frontend-pipecat && npm run lint
 ```
 
