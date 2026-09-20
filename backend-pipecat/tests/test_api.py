@@ -45,6 +45,32 @@ def test_restart_model():
     assert data["status"] == "success"
     assert "STT model restart request accepted." in data["message"]
 
+def test_get_params():
+    response = client.get("/get_params")
+    assert response.status_code == 200
+    data = response.json()
+    assert "vad_confidence" in data
+    assert "stt_language" in data
+    assert data["stt_language"] == "ja"
+
+def test_set_params():
+    new_params = {
+        "vad_confidence": 0.8,
+        "vad_start_secs": 0.3,
+        "vad_stop_secs": 0.8,
+        "vad_min_volume": 0.1,
+        "stt_language": "en"
+    }
+    response = client.post("/set_params", json=new_params)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["vad_confidence"] == 0.8
+    assert data["stt_language"] == "en"
+
+    # Verify that get_params returns the updated values
+    response_get = client.get("/get_params")
+    assert response_get.json()["stt_language"] == "en"
+
 def test_websocket_endpoint():
     # A simple test to ensure the websocket route is registered and accepts connections
     # We will just connect and then immediately close to test the handshake

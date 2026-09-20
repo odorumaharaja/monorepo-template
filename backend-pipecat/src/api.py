@@ -108,6 +108,22 @@ class ErrorResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
 
+class PipecatParams(BaseModel):
+    vad_confidence: float = 0.5
+    vad_start_secs: float = 0.2
+    vad_stop_secs: float = 0.5
+    vad_min_volume: float = 0.05
+    stt_language: str = "ja"
+
+# Global state for parameters
+global_params = PipecatParams(
+    vad_confidence=float(os.getenv("VAD_CONFIDENCE", "0.5")),
+    vad_start_secs=float(os.getenv("VAD_START_SECS", "0.2")),
+    vad_stop_secs=float(os.getenv("VAD_STOP_SECS", "0.5")),
+    vad_min_volume=float(os.getenv("VAD_MIN_VOLUME", "0.05")),
+    stt_language=os.getenv("STT_LANGUAGE", "ja"),
+)
+
 @app.get(
     "/health",
     summary="Health Check",
@@ -163,6 +179,31 @@ async def restart_model():
     return RestartResponse(status="success", message="STT model restart request accepted.")
 
 
+@app.get(
+    "/get_params",
+    summary="Get Pipecat Parameters",
+    description="Returns the current VAD and STT Language parameters.",
+    tags=["Model"],
+    response_model=PipecatParams,
+)
+async def get_params() -> PipecatParams:
+    return global_params
+
+
+@app.post(
+    "/set_params",
+    summary="Set Pipecat Parameters",
+    description="Updates the VAD and STT Language parameters for future connections.",
+    tags=["Model"],
+    response_model=PipecatParams,
+)
+async def set_params(params: PipecatParams) -> PipecatParams:
+    global global_params
+    global_params = params
+    logger.info(f"Updated global parameters: {global_params}")
+    return global_params
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -186,10 +227,10 @@ async def websocket_endpoint(websocket: WebSocket):
         vad = VADProcessor(
             vad_analyzer=SileroVADAnalyzer(
                 params=VADParams(
-                    confidence=0.5,
-                    start_secs=0.2,
-                    stop_secs=0.5,
-                    min_volume=0.05,
+                    confidence=global_params.vad_confidence,
+                    start_secs=global_params.vad_start_secs,
+                    stop_secs=global_params.vad_stop_secs,
+                    min_volume=global_params.vad_min_volume,
                 )
             )
         )
@@ -206,10 +247,16 @@ async def websocket_endpoint(websocket: WebSocket):
             f"⚡ Initializing Faster-Whisper STT (model: '{whisper_model}', device: '{whisper_device}', compute_type: '{whisper_compute_type}')"
         )
 
+        try:
+            language = Language(global_params.stt_language)
+        except ValueError:
+            logger.warning(f"Unsupported language '{global_params.stt_language}', defaulting to 'ja'")
+            language = Language.JA
+
         stt = CachedWhisperSTTService(
             settings=WhisperSTTService.Settings(
                 model=whisper_model,
-                language=Language.JA,
+                language=language,
             ),
             device=whisper_device,
             compute_type=whisper_compute_type,
